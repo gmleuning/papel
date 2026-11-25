@@ -3,6 +3,7 @@ using NAPS2.EtoForms.Notifications;
 using NAPS2.EtoForms.Ui;
 using NAPS2.ImportExport.Email;
 using NAPS2.ImportExport.Images;
+using NAPS2.Papel;
 using NAPS2.Pdf;
 
 namespace NAPS2.ImportExport;
@@ -16,10 +17,13 @@ public class ExportController : IExportController
     private readonly Naps2Config _config;
     private readonly UiImageList _imageList;
     private readonly NameManager _nameManager;
+    private readonly PapelSession _papelSession;
 
     public ExportController(DialogHelper dialogHelper, IOperationFactory operationFactory, IFormFactory formFactory,
-        OperationProgress operationProgress, Naps2Config config, UiImageList imageList, NameManager nameManager)
+        OperationProgress operationProgress, Naps2Config config, UiImageList imageList, NameManager nameManager,
+        PapelSession papelSession)
     {
+        _papelSession = papelSession;
         _dialogHelper = dialogHelper;
         _operationFactory = operationFactory;
         _formFactory = formFactory;
@@ -45,7 +49,8 @@ public class ExportController : IExportController
         }
         else
         {
-            if (!_dialogHelper.PromptToSavePdf(GetDefaultPath(defaultFileName, uiImages, true), out savePath!))
+            if (!_dialogHelper.PromptToSavePdf(ApplyBookName(GetDefaultPath(defaultFileName, uiImages, true)),
+                    out savePath!))
             {
                 return false;
             }
@@ -111,7 +116,8 @@ public class ExportController : IExportController
             var defaultFileName = string.IsNullOrWhiteSpace(pdfDefaultFileName)
                 ? imageDefaultFileName
                 : pdfDefaultFileName;
-            if (!_dialogHelper.PromptToSavePdfOrImage(GetDefaultPath(defaultFileName, uiImages, null), out savePath!))
+            if (!_dialogHelper.PromptToSavePdfOrImage(ApplyBookName(GetDefaultPath(defaultFileName, uiImages, null)),
+                    out savePath!))
             {
                 return false;
             }
@@ -229,8 +235,23 @@ public class ExportController : IExportController
     {
         var op = _operationFactory.Create<SavePdfOperation>();
 
-        if (op.Start(filename, images, _config.Get(c => c.PdfSettings), _config.DefaultOcrParams(), emailMessage,
-                saveParams))
+        var pdfSettings = _config.Get(c => c.PdfSettings);
+        if (_papelSession.HasBookInfo)
+        {
+            pdfSettings = pdfSettings with
+            {
+                Metadata = pdfSettings.Metadata with
+                {
+                    Title = string.IsNullOrWhiteSpace(_papelSession.Title)
+                        ? pdfSettings.Metadata.Title
+                        : _papelSession.Title,
+                    Author = string.IsNullOrWhiteSpace(_papelSession.Author)
+                        ? pdfSettings.Metadata.Author
+                        : _papelSession.Author
+                }
+            };
+        }
+        if (op.Start(filename, images, pdfSettings, _config.DefaultOcrParams(), emailMessage, saveParams))
         {
             _operationProgress.ShowProgress(op);
         }
@@ -248,6 +269,18 @@ public class ExportController : IExportController
         {
             _imageList.Mutate(new ImageListMutation.DeleteSelected(), ListSelection.From(uiImages));
         }
+    }
+
+    /// <summary>
+    /// When book info is set, the default file name comes from the title/author template, in the same folder as the
+    /// original file.
+    /// </summary>
+    private string? ApplyBookName(string? defaultPath)
+    {
+        var bookName = _papelSession.GetFileName();
+        if (bookName == null) return defaultPath;
+        var dir = defaultPath != null && Path.IsPathRooted(defaultPath) ? Path.GetDirectoryName(defaultPath) : null;
+        return dir != null ? Path.Combine(dir, bookName + ".pdf") : bookName + ".pdf";
     }
 
     private string? GetDefaultPath(string? defaultFileName, ICollection<UiImage> uiImages, bool? pdf)

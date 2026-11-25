@@ -202,6 +202,10 @@ public class TesseractOcrEngine : IOcrEngine
             .First();
         var words = new List<OcrResultElement>();
         var lines = new List<OcrResultElement>();
+        var paragraphIds = hocrDocument.Descendants()
+            .Where(element => GetClass(element) == "ocr_par")
+            .Select((element, index) => (element, index))
+            .ToDictionary(x => x.element, x => x.index);
         foreach (var lineElement in hocrDocument.Descendants()
                      .Where(element => GetClass(element) is "ocr_line" or "ocr_header" or "ocr_textfloat"))
         {
@@ -234,7 +238,10 @@ public class TesseractOcrEngine : IOcrEngine
                 Text = string.Join(" ", lineWords.Select(x => x.Text)),
                 Bounds = lineBounds,
                 Baseline = CalculateBaseline(baselineParams, lineBounds, lineBounds),
-                Children = lineWords
+                Children = lineWords,
+                ParagraphId = lineElement.Ancestors().FirstOrDefault(paragraphIds.ContainsKey) is { } par
+                    ? paragraphIds[par]
+                    : -1
             });
         }
         return new OcrResult(pageBounds, words.ToImmutableList(), lines.ToImmutableList());

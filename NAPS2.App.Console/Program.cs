@@ -11,7 +11,8 @@ static class Program
 {
     static int Main()
     {
-        var appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NAPS2.exe");
+        var appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Papel.exe");
+        if (!File.Exists(appPath)) appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NAPS2.exe");
         Process process;
         try
         {

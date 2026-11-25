@@ -29,7 +29,9 @@ public abstract record Transform
         typeof(ScaleTransform),
         typeof(SharpenTransform),
         typeof(ThumbnailTransform),
-        typeof(TrueContrastTransform)
+        typeof(TrueContrastTransform),
+        typeof(AdaptiveThresholdTransform),
+        typeof(MarginWhitenTransform)
     ];
 
     private class TransformTypes : CustomXmlTypes<Transform>

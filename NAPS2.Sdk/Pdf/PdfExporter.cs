@@ -410,8 +410,22 @@ public class PdfExporter
         // to the previous one (Td moves relative to the start of the previous Td, starting from the origin)
         double? lastFontSize = null;
         double lastX = 0, lastY = 0;
+        // Papel: each OCR paragraph is wrapped in a marked-content span whose /ActualText is the paragraph with its
+        // line breaks and end-of-line hyphens removed, so viewers that honour ActualText copy clean paragraphs.
+        var paragraphText = GetParagraphActualText(ocrResult);
+        int openParagraph = -1;
         foreach (var info in GetGlyphlessOcrTextToDraw(page, ocrResult))
         {
+            if (info.ParagraphId != openParagraph)
+            {
+                if (openParagraph != -1) content.Append("EMC\n");
+                openParagraph = -1;
+                if (info.ParagraphId != -1 && paragraphText.TryGetValue(info.ParagraphId, out var actualText))
+                {
+                    content.Append($"/Span <</ActualText {EncodePdfTextString(actualText)}>> BDC\n");
+                    openParagraph = info.ParagraphId;
+                }
+            }
             var fontSize = RoundPdfNumber(info.FontSize);
             if (fontSize != lastFontSize)
             {
@@ -428,9 +442,52 @@ public class PdfExporter
             lastX = x;
             lastY = y;
         }
+        if (openParagraph != -1) content.Append("EMC\n");
         content.Append("ET Q\n");
         page.Contents.PrependContent().CreateStream(Encoding.ASCII.GetBytes(content.ToString()));
     }
+
+    /// <summary>
+    /// Joins the lines of each multi-line OCR paragraph into one string, rejoining words hyphenated at line ends.
+    /// Single-line paragraphs get no ActualText (it wouldn't change anything).
+    /// </summary>
+    private static Dictionary<int, string> GetParagraphActualText(OcrResult ocrResult)
+    {
+        var result = new Dictionary<int, string>();
+        foreach (var group in ocrResult.Lines.Where(l => l.ParagraphId != -1).GroupBy(l => l.ParagraphId))
+        {
+            var lines = group.Select(l => l.Text.Trim()).Where(t => t.Length > 0).ToList();
+            if (lines.Count < 2) continue;
+            var useSpaces = !IsCjk(group.First().LanguageCode);
+            var sb = new StringBuilder();
+            foreach (var line in lines)
+            {
+                if (sb.Length > 0)
+                {
+                    char last = sb[sb.Length - 1];
+                    bool hyphen = last is '-' or '\u00AD' or '\u2010' && sb.Length > 1 && char.IsLetter(sb[sb.Length - 2]);
+                    if (hyphen && char.IsLower(line[0]))
+                    {
+                        sb.Length--;
+                    }
+                    else if (!hyphen && useSpaces)
+                    {
+                        sb.Append(' ');
+                    }
+                }
+                sb.Append(line);
+            }
+            // Trailing space so consecutive paragraphs don't run together when selected as a block
+            result[group.Key] = sb.Append(useSpaces ? " " : "").ToString();
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Encodes a PDF text string as UTF-16BE hex with a byte order mark.
+    /// </summary>
+    private static string EncodePdfTextString(string text) =>
+        "<FEFF" + string.Concat(text.Select(c => ((int) c).ToString("X4"))) + ">";
 
     // 2 decimal places (1/100 pt) is far more precise than OCR bounds
     private static double RoundPdfNumber(double value) => Math.Round(value, 2);
@@ -486,7 +543,10 @@ public class PdfExporter
                 }
                 if (width <= 0) continue;
 
-                yield return new GlyphlessTextDrawInfo(text, fontSize, x, word.Baseline * vAdjust, width);
+                yield return new GlyphlessTextDrawInfo(text, fontSize, x, word.Baseline * vAdjust, width)
+                {
+                    ParagraphId = line.ParagraphId
+                };
             }
         }
     }
@@ -594,6 +654,8 @@ public class PdfExporter
 
     private record GlyphlessTextDrawInfo(string Text, double FontSize, double X, double Y, double Width)
     {
+        public int ParagraphId { get; init; } = -1;
+
         /// <summary>
         /// The horizontal scale factor (1 = unscaled) that makes the text exactly fit the target width. This works as
         /// every glyph has the same width.

@@ -12,4 +12,11 @@ public record OcrResultElement(
     (int x, int y, int w, int h) Bounds,
     int Baseline,
     int FontSize,
-    ImmutableList<OcrResultElement> Children);
+    ImmutableList<OcrResultElement> Children)
+{
+    /// <summary>
+    /// The index of the paragraph (hOCR ocr_par) this line belongs to, or -1 if unknown. Lines with the same id are
+    /// wrapped lines of one paragraph.
+    /// </summary>
+    public int ParagraphId { get; init; } = -1;
+}

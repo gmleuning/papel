@@ -37,7 +37,8 @@ public class ExportControllerTests : ContextualTests
             new SaveImagesOperation(_overwritePrompt, ImageContext, nameManager));
 
         _controller = new ExportController(_dialogHelper, operationFactory, Substitute.For<IFormFactory>(),
-            Substitute.For<OperationProgress>(), _config, new UiImageList(), nameManager);
+            Substitute.For<OperationProgress>(), _config, new UiImageList(), nameManager,
+            new NAPS2.Papel.PapelSession());
     }
 
     private static string Year => DateTime.Now.ToString("yyyy");

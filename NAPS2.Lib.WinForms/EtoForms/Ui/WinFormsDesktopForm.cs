@@ -9,6 +9,7 @@ using NAPS2.EtoForms.Layout;
 using NAPS2.EtoForms.Notifications;
 using NAPS2.EtoForms.Widgets;
 using NAPS2.EtoForms.WinForms;
+using NAPS2.Papel;
 using NAPS2.Scan;
 using NAPS2.WinForms;
 using WF = System.Windows.Forms;
@@ -23,6 +24,9 @@ public class WinFormsDesktopForm : DesktopForm
     private WF.ToolStrip _mainToolStrip = null!;
     private WF.ToolStrip _profilesToolStrip = null!;
     private WF.ToolStripContainer _container = null!;
+    private readonly PapelServices _papel;
+    private WF.SplitContainer _consoleSplit = null!;
+    private PapelConsoleView? _consoleView;
 
     public WinFormsDesktopForm(
         Naps2Config config,
@@ -43,12 +47,14 @@ public class WinFormsDesktopForm : DesktopForm
         Lazy<DesktopCommands> commands,
         Sidebar sidebar,
         IIconProvider iconProvider,
-        EditWithController editWithController)
+        EditWithController editWithController,
+        PapelServices papel)
         : base(config, keyboardShortcuts, notificationManager, cultureHelper, colorScheme, profileManager, imageList,
             thumbnailController, thumbnailProvider, desktopController, desktopScanController, imageListActions,
             imageListViewBehavior, desktopFormProvider, desktopSubFormController, commands, sidebar, iconProvider,
             editWithController)
     {
+        _papel = papel;
         _form = this.ToNative();
         _form.FormClosing += OnFormClosing;
 
@@ -94,14 +100,6 @@ public class WinFormsDesktopForm : DesktopForm
 
         NativeListView.TabIndex = 7;
         NativeListView.BorderStyle = WF.BorderStyle.None;
-    }
-
-    protected override void OnShown(EventArgs e)
-    {
-        EtoPlatform.Current.AttachDpiDependency(this,
-            scale => _toolbarFormatter.RelayoutToolbar(_mainToolStrip, scale));
-        NativeListView.Focus();
-        base.OnShown(e);
     }
 
     protected override LayoutElement GetControlButtons()
@@ -152,6 +150,18 @@ public class WinFormsDesktopForm : DesktopForm
 
         _mainToolStrip.ShowItemToolTips = false;
         _mainToolStrip.TabStop = true;
+        _mainToolStrip.GripStyle = WF.ToolStripGripStyle.Hidden;
+        _mainToolStrip.Padding = new WF.Padding(6, 2, 6, 2);
+        var back = _colorScheme.BackgroundColor.ToSD();
+        var hover = _colorScheme.HighlightBackgroundColor.ToSD();
+        var pressed = _colorScheme.HighlightBorderColor.ToSD();
+        _mainToolStrip.Renderer = new PapelToolStripRenderer(back, _colorScheme.SeparatorColor.ToSD(), hover,
+            Color.FromArgb(90, pressed));
+        _mainToolStrip.BackColor = back;
+        foreach (var panel in _container.Controls.OfType<WF.ToolStripPanel>())
+        {
+            panel.BackColor = back;
+        }
         EtoPlatform.Current.AttachDpiDependency(this,
             scale => _mainToolStrip.ImageScalingSize = new Size((int) (32 * scale), (int) (32 * scale)));
 
@@ -204,11 +214,8 @@ public class WinFormsDesktopForm : DesktopForm
 
     public override void PlaceToolbars()
     {
-        if (ToolbarConfig.Get(c => c.ShowProfilesToolbar) && _profilesToolStrip.Parent == null)
-        {
-            _container.TopToolStripPanel.Controls.Add(_profilesToolStrip);
-        }
-        if (!ToolbarConfig.Get(c => c.ShowProfilesToolbar) && _profilesToolStrip.Parent != null)
+        // Papel: no scan profiles toolbar
+        if (_profilesToolStrip.Parent != null)
         {
             _profilesToolStrip.Parent.Controls.Remove(_profilesToolStrip);
         }
@@ -221,38 +228,7 @@ public class WinFormsDesktopForm : DesktopForm
 
     protected override void UpdateProfilesToolbar()
     {
-        var toolbarItems = _profilesToolStrip.Items;
-        var profiles = _profileManager.Profiles;
-        var extra = toolbarItems.Count - profiles.Count;
-        var missing = profiles.Count - toolbarItems.Count;
-        for (int i = 0; i < extra; i++)
-        {
-            toolbarItems.RemoveAt(toolbarItems.Count - 1);
-        }
-        for (int i = 0; i < missing; i++)
-        {
-            var item = new WF.ToolStripButton
-            {
-                TextImageRelation = WF.TextImageRelation.ImageBeforeText,
-                ImageAlign = ContentAlignment.MiddleLeft,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            EtoPlatform.Current.AttachDpiDependency(this,
-                scale => item.Image = _iconProvider.GetIcon("control_play_blue", IconScenario.SmallToolbar, scale).ToSD());
-            item.Click += (_, _) => _desktopScanController.ScanWithProfile((ScanProfile) item.Tag!);
-            toolbarItems.Add(item);
-        }
-        for (int i = 0; i < profiles.Count; i++)
-        {
-            var profile = profiles[i];
-            var item = toolbarItems[i];
-            item.Tag = profile;
-            var text = profile.DisplayName.Replace("&", "&&");
-            if (item.Text != text)
-            {
-                item.Text = text;
-            }
-        }
+        // Papel: no scan profiles
     }
 
     protected override void BuildLayout()
@@ -263,35 +239,83 @@ public class WinFormsDesktopForm : DesktopForm
         wfContent.Dock = WF.DockStyle.Fill;
         var etoContainer = _container.ToEto();
         Content = etoContainer;
-        _container.ContentPanel.Controls.Add(wfContent);
 
-        DrawContentBorders();
+        _consoleSplit = new WF.SplitContainer
+        {
+            Dock = WF.DockStyle.Fill,
+            Orientation = WF.Orientation.Horizontal,
+            FixedPanel = WF.FixedPanel.Panel2,
+            SplitterWidth = 5,
+            Panel2Collapsed = true,
+            BackColor = _colorScheme.SeparatorColor.ToSD()
+        };
+        _consoleSplit.Panel1.BackColor = _colorScheme.BackgroundColor.ToSD();
+        _consoleSplit.Panel1.Controls.Add(wfContent);
+        _consoleSplit.SplitterMoved += (_, _) =>
+        {
+            if (_consoleSplit.Panel2Collapsed) return;
+            PapelSettings.Current.ConsoleHeight = _consoleSplit.Height - _consoleSplit.SplitterDistance;
+        };
+        _container.ContentPanel.Controls.Add(_consoleSplit);
+
+        DrawContentBorders(wfContent);
     }
 
-    private void DrawContentBorders()
+    protected override void OnShown(EventArgs e)
     {
-        var pen = new Pen(_colorScheme.SeparatorColor.ToSD());
+        EtoPlatform.Current.AttachDpiDependency(this,
+            scale => _toolbarFormatter.RelayoutToolbar(_mainToolStrip, scale));
+        NativeListView.Focus();
+        base.OnShown(e);
+        if (PapelSettings.Current.ConsoleVisible)
+        {
+            SetConsoleVisible(true, focus: false);
+        }
+    }
 
-        var splitter = ((LayoutLeftPanel) LayoutController.Content!).Splitter;
-        var panel1 = (WF.Panel) splitter.Panel1.ToNative();
-        var panel2 = (WF.Panel) splitter.Panel2.ToNative();
-        var split = (WF.SplitContainer) splitter.ToNative();
-        // Draw horizontal lines at the top of the content (below the toolbar) and a vertical line at the sidebar split point
-        // TODO: Improve this for when the toolbars are in non-standard positions (i.e. not the top)
-        // TODO: Consider if it's worth widening the border for high-dpi
-        panel1.Paint += (_, args) =>
+    public override void ToggleConsole() => SetConsoleVisible(_consoleSplit.Panel2Collapsed, focus: true);
+
+    public override void ShowConsole()
+    {
+        if (_consoleSplit.Panel2Collapsed) SetConsoleVisible(true, focus: false);
+    }
+
+    private void SetConsoleVisible(bool visible, bool focus)
+    {
+        if (visible)
         {
-            args.Graphics.DrawLine(pen, panel1.Left, panel1.Top, panel1.Right, panel1.Top);
-        };
-        split.Paint += (_, args) =>
+            if (_consoleView == null)
+            {
+                _consoleView = new PapelConsoleView(_papel.Shell, _papel.Tools.ExportToVariable,
+                    () => SetConsoleVisible(false, false))
+                {
+                    Dock = WF.DockStyle.Fill
+                };
+                _consoleSplit.Panel2.Controls.Add(_consoleView);
+            }
+            _consoleSplit.Panel2Collapsed = false;
+            var height = Math.Clamp(PapelSettings.Current.ConsoleHeight, 80,
+                Math.Max(80, _consoleSplit.Height - 120));
+            _consoleSplit.SplitterDistance = Math.Max(0, _consoleSplit.Height - height - _consoleSplit.SplitterWidth);
+            if (focus) _consoleView.FocusInput();
+        }
+        else
         {
-            args.Graphics.DrawLine(pen, split.Left, split.Top, split.Right, split.Top);
-            args.Graphics.DrawLine(pen, splitter.Position + 2, split.Top, splitter.Position + 2, split.Bottom);
-        };
-        panel2.Paint += (_, args) =>
+            _consoleSplit.Panel2Collapsed = true;
+            NativeListView.Focus();
+        }
+        if (PapelSettings.Current.ConsoleVisible != visible)
         {
-            args.Graphics.DrawLine(pen, panel2.Left, panel2.Top, panel2.Right, panel2.Top);
-        };
+            PapelSettings.Current.ConsoleVisible = visible;
+            PapelSettings.Current.Save();
+        }
+    }
+
+    private void DrawContentBorders(WF.Control content)
+    {
+        // A single hairline between the toolbar and the page list
+        var pen = new Pen(_colorScheme.SeparatorColor.ToSD());
+        content.Paint += (_, args) => args.Graphics.DrawLine(pen, 0, 0, content.Width, 0);
     }
 
     protected override void SetThumbnailSpacing(int thumbnailSize, float scale)

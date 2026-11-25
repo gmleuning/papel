@@ -60,7 +60,7 @@
         <Naps2ReadyToRunAssembly Include="Microsoft.Extensions.Logging.Abstractions.dll" />
         <Naps2ReadyToRunAssembly Include="Microsoft.WindowsAPICodePack.dll" />
         <Naps2ReadyToRunAssembly Include="Microsoft.WindowsAPICodePack.Shell.dll" />
-        <Naps2ReadyToRunAssembly Include="NAPS2.dll" />
+        <Naps2ReadyToRunAssembly Include="Papel.dll" />
         <Naps2ReadyToRunAssembly Include="NAPS2.Escl.dll" />
         <Naps2ReadyToRunAssembly Include="NAPS2.Images.dll" />
         <Naps2ReadyToRunAssembly Include="NAPS2.Images.Gdi.dll" />

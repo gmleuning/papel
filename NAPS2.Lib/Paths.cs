@@ -15,7 +15,8 @@ public static class Paths
         AppDataPath = Path.Combine(ExecutablePath, "..", "Data");
 #else
         var userAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var subfolder = OperatingSystem.IsWindows() ? "NAPS2" : "naps2";
+        // Papel keeps its own settings, recovery and temp data apart from an installed NAPS2
+        var subfolder = OperatingSystem.IsWindows() ? "Papel" : "papel";
         if (string.IsNullOrEmpty(userAppData) && OperatingSystem.IsMacOS())
         {
             // Not sure if this is necessary but older macOS (10.15) didn't seem to get the appdata path
@@ -81,8 +82,9 @@ public static class Paths
             if (!Directory.Exists(TempPath)) return;
             if (!Directory.EnumerateFileSystemEntries(TempPath).Any()) return;
 
+            var ownName = Process.GetCurrentProcess().ProcessName;
             var otherNaps2Processes = Process.GetProcesses().Where(x =>
-                x.ProcessName.Equals("NAPS2", StringComparison.OrdinalIgnoreCase) &&
+                x.ProcessName.Equals(ownName, StringComparison.OrdinalIgnoreCase) &&
                 x.Id != Process.GetCurrentProcess().Id);
             if (!otherNaps2Processes.Any())
             {

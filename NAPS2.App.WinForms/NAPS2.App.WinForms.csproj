@@ -5,7 +5,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <OutputType>WinExe</OutputType>
     <RootNamespace>NAPS2</RootNamespace>
-    <AssemblyName>NAPS2</AssemblyName>
+    <AssemblyName>Papel</AssemblyName>
     <ApplicationIcon>../NAPS2.Lib/Icons/favicon.ico</ApplicationIcon>
 
     <SelfContained>true</SelfContained>
@@ -18,8 +18,8 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <CETCompat>false</CETCompat>
 
-    <Title>NAPS2 - Not Another PDF Scanner</Title>
-    <Product>NAPS2 - Not Another PDF Scanner</Product>
+    <Title>Papel</Title>
+    <Product>Papel</Product>
   </PropertyGroup>
 
   <Import Project="..\NAPS2.Setup\targets\CommonTargets.targets" />

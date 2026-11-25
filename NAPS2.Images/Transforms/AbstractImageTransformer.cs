@@ -52,6 +52,10 @@ internal abstract class AbstractImageTransformer<TImage> where TImage : IMemoryI
                 return PerformTransform(image, resolutionTransform);
             case FileFormatTransform fileFormatTransform:
                 return PerformTransform(image, fileFormatTransform);
+            case AdaptiveThresholdTransform adaptiveThresholdTransform:
+                return (TImage) PapelImageOps.AdaptiveThreshold(ImageContext, image, adaptiveThresholdTransform);
+            case MarginWhitenTransform marginWhitenTransform:
+                return (TImage) PapelImageOps.WhitenMargins(image, marginWhitenTransform);
             default:
                 throw new ArgumentException($"Unsupported transform type: {transform.GetType().FullName}");
         }

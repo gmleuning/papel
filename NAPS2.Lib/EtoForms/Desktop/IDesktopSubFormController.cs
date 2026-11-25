@@ -10,6 +10,8 @@ public interface IDesktopSubFormController
     void ShowBrightnessContrastForm();
     void ShowHueSaturationForm();
     void ShowBlackWhiteForm();
+    void ShowAdaptiveThresholdForm();
+    void ShowMarginWhitenForm();
     void ShowSharpenForm();
     void ShowCompressForm();
     void ShowSplitForm();

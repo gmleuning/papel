@@ -54,23 +54,14 @@ internal class ToolbarSettingsPanel : SettingsPanel
     // The buttons in the order they appear in the toolbar
     private static IEnumerable<(ToolbarButtons button, string label)> GetButtons()
     {
-        yield return (ToolbarButtons.Scan, UiStrings.Scan);
-        yield return (ToolbarButtons.Profiles, UiStrings.Profiles);
+        // Papel toolbar (Clean text and Tools are always shown)
+        yield return (ToolbarButtons.Import, "Open");
+        yield return (ToolbarButtons.SavePdf, UiStrings.Save);
         yield return (ToolbarButtons.Ocr, UiStrings.Ocr);
-        yield return (ToolbarButtons.Import, UiStrings.Import);
-        yield return (ToolbarButtons.SavePdf, UiStrings.SavePdf);
-        yield return (ToolbarButtons.SaveImages, UiStrings.SaveImages);
-        if (PlatformCompat.System.CanEmail)
-            yield return (ToolbarButtons.EmailPdf, UiStrings.EmailPdf);
-        if (PlatformCompat.System.CanPrint)
-            yield return (ToolbarButtons.Print, UiStrings.Print);
-        yield return (ToolbarButtons.Image, UiStrings.Image);
-        yield return (ToolbarButtons.Rotate, UiStrings.Rotate);
-        yield return (ToolbarButtons.Move, UiStrings.MoveUpDown);
+        yield return (ToolbarButtons.Image, "Page");
         yield return (ToolbarButtons.Reorder, UiStrings.Reorder);
         yield return (ToolbarButtons.Delete, UiStrings.Delete);
         yield return (ToolbarButtons.Clear, UiStrings.Clear);
-        yield return (ToolbarButtons.Language, UiStrings.Language);
         yield return (ToolbarButtons.Settings, UiStrings.Settings);
         yield return (ToolbarButtons.About, UiStrings.About);
     }
@@ -93,7 +84,7 @@ internal class ToolbarSettingsPanel : SettingsPanel
                     )
                 )
             ),
-            PlatformCompat.System.SupportsProfilesToolbar
+            false
                 ? L.GroupBox(
                     UiStrings.ProfilesToolbar,
                     L.Column(

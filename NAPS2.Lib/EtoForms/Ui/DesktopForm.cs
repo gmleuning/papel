@@ -36,6 +36,7 @@ public abstract class DesktopForm : EtoFormBase
     private readonly ListProvider<Command> _languageMenuCommands = new();
     protected readonly ListProvider<Command> _editWithCommands = new();
     protected readonly ListProvider<Command> _manualDuplexPreviewCommands = new();
+    protected readonly ListProvider<Command> _toolCommands = new();
     private readonly ContextMenu _contextMenu = new();
 
     private readonly NotificationArea _notificationArea;
@@ -88,6 +89,7 @@ public abstract class DesktopForm : EtoFormBase
         _keyboardShortcuts.Assign(Commands);
         CreateToolbarsAndMenus();
         UpdateScanButton();
+        UpdateTools();
         UpdateEditWithApp();
         UpdateProfilesToolbar();
         InitLanguageDropdown();
@@ -143,19 +145,10 @@ public abstract class DesktopForm : EtoFormBase
         LayoutController.Content = BuildSidebarLayout(mainContent);
     }
 
-    protected bool SidebarHidden => Config.Get(c => c.HiddenButtons).HasFlag(ToolbarButtons.Sidebar);
+    // The scan sidebar is gone in Papel
+    protected bool SidebarHidden => true;
 
-    protected virtual LayoutElement BuildSidebarLayout(LayoutElement mainContent)
-    {
-        return L.LeftPanel(
-            SidebarHidden ? C.None() : _sidebar.CreateView(this),
-            mainContent
-        ).SizeConfig(
-            () => Config.Get(c => c.SidebarWidth),
-            width => Config.User.Set(c => c.SidebarWidth, width),
-            Sidebar.MIN_SIDEBAR_WIDTH,
-            Sidebar.MIN_CONTENT_WIDTH);
-    }
+    protected virtual LayoutElement BuildSidebarLayout(LayoutElement mainContent) => mainContent;
 
     private void OpeningContextMenu(object? sender, EventArgs e)
     {
@@ -306,52 +299,59 @@ public abstract class DesktopForm : EtoFormBase
             ToolBar.Items.Clear();
         }
 
-        var hiddenButtons = ToolbarConfig.Get(c => c.HiddenButtons);
+        // Papel layout: Open, Save | OCR, Clean text, Tools | Page, Reorder | Delete, Clear | Settings
         // Separators are only added between non-empty groups of buttons
         bool hasButtons = false;
         bool separatorPending = false;
 
-        if (ShowButton(ToolbarButtons.Scan))
-            CreateToolbarButtonWithMenu(Commands.Scan, DesktopToolbarMenuType.Scan, new MenuProvider()
-                .Dynamic(_scanMenuCommands)
-                .Separator()
-                .Append(Commands.NewProfile)
-                .Append(Commands.BatchScan)
-                .Append(Config.Get(c => c.DisableScannerSharing) ? null : Commands.ScannerSharing));
-        if (ShowButton(ToolbarButtons.Profiles))
-            CreateToolbarButton(Commands.Profiles);
-        if (ShowButton(ToolbarButtons.Ocr))
-            CreateToolbarButton(Commands.Ocr);
         if (ShowButton(ToolbarButtons.Import))
             CreateToolbarButton(Commands.Import);
-        separatorPending = true;
         if (ShowButton(ToolbarButtons.SavePdf))
-            CreateToolbarButtonWithMenu(Commands.SavePdf, DesktopToolbarMenuType.SavePdf, new MenuProvider()
+            CreateToolbarButtonWithMenu(Commands.SaveMenu, DesktopToolbarMenuType.SavePdf, new MenuProvider()
                 .Append(Commands.SaveAllPdf)
                 .Append(Commands.SaveSelectedPdf)
                 .Separator()
-                .Append(Commands.PdfSettings));
-        if (ShowButton(ToolbarButtons.SaveImages))
-            CreateToolbarButtonWithMenu(Commands.SaveImages, DesktopToolbarMenuType.SaveImages, new MenuProvider()
+                .Append(Commands.BookInfo)
+                .Append(Commands.PdfSettings)
+                .Separator()
                 .Append(Commands.SaveAllImages)
                 .Append(Commands.SaveSelectedImages)
+                .Append(Commands.ImageSettings)
                 .Separator()
-                .Append(Commands.ImageSettings));
-        if (PlatformCompat.System.CanEmail && ShowButton(ToolbarButtons.EmailPdf))
-            CreateToolbarButtonWithMenu(Commands.EmailPdf, DesktopToolbarMenuType.EmailPdf, new MenuProvider()
-                .Append(Commands.EmailAll)
-                .Append(Commands.EmailSelected)
+                .Append(PlatformCompat.System.CanPrint ? Commands.Print : null));
+        separatorPending = true;
+        if (ShowButton(ToolbarButtons.Ocr))
+            CreateToolbarButton(Commands.Ocr);
+        if (ShowButton(null))
+            CreateToolbarButtonWithMenu(Commands.CleanTextMenu, DesktopToolbarMenuType.CleanText, new MenuProvider()
+                .Append(Commands.CopyCleanTextSelected)
+                .Append(Commands.CopyCleanTextAll)
+                .Append(Commands.ExportCleanText)
                 .Separator()
-                .Append(Commands.EmailSettings)
-                .Append(Commands.PdfSettings));
-        if (PlatformCompat.System.CanPrint && ShowButton(ToolbarButtons.Print))
-            CreateToolbarButton(Commands.Print);
+                .Append(Commands.StripHeadersFooters));
+        if (ShowButton(null))
+            CreateToolbarButtonWithMenu(Commands.ToolsMenu, DesktopToolbarMenuType.Tools, new MenuProvider()
+                .Dynamic(_toolCommands)
+                .Separator()
+                .Append(Commands.PagesToVariable)
+                .Append(Commands.ToggleConsole)
+                .Separator()
+                .Append(Commands.EditTools)
+                .Append(Commands.ReloadTools));
         separatorPending = true;
         if (ShowButton(ToolbarButtons.Image))
-            CreateToolbarMenu(Commands.ImageMenu, new MenuProvider()
+            CreateToolbarMenu(Commands.PageMenu, new MenuProvider()
                 .Append(Commands.ViewImage)
                 .Separator()
+                .Append(Commands.CleanBlackWhite)
+                .Append(Commands.WhitenMargins)
+                .Append(Commands.SplitSpreads)
+                .Separator()
+                .SubMenu(Commands.RotateMenu, GetRotateMenuProvider())
                 .Append(Commands.Crop)
+                .Append(Commands.Split)
+                .Append(Commands.Combine)
+                .Separator()
                 .Append(Commands.BrightCont)
                 .Append(Commands.HueSat)
                 .Append(Commands.BlackWhite)
@@ -359,56 +359,37 @@ public abstract class DesktopForm : EtoFormBase
                 .Append(Commands.DocumentCorrection)
                 .Append(Commands.Compress)
                 .Separator()
-                .Append(Commands.Split)
-                .Append(Commands.Combine)
-                .Separator()
                 .Dynamic(_editWithCommands)
                 .Append(Commands.EditWithPick)
                 .Separator()
                 .Append(Commands.ResetImage));
-        if (ShowButton(ToolbarButtons.Rotate))
-            CreateToolbarMenu(Commands.RotateMenu, GetRotateMenuProvider());
-        if (ShowButton(ToolbarButtons.Move))
-            CreateToolbarStackedButtons(Commands.MoveUp, Commands.MoveDown);
         if (ShowButton(ToolbarButtons.Reorder))
-        {
-            var menuProvider = new MenuProvider();
-            if (!hiddenButtons.HasFlag(ToolbarButtons.ManualDuplex))
-            {
-                menuProvider
-                    .Append(Commands.ManualDuplex)
-                    .Dynamic(_manualDuplexPreviewCommands)
-                    .Separator();
-            }
-            if (!hiddenButtons.HasFlag(ToolbarButtons.Interleave))
-            {
-                menuProvider
-                    .Append(Commands.Interleave)
-                    .Append(Commands.Deinterleave)
-                    .Append(Commands.AltInterleave)
-                    .Append(Commands.AltDeinterleave)
-                    .Separator();
-            }
-            menuProvider.SubMenu(Commands.ReverseMenu, new MenuProvider()
-                .Append(Commands.ReverseAll)
-                .Append(Commands.ReverseSelected));
-            CreateToolbarMenu(Commands.ReorderMenu, menuProvider);
-        }
+            CreateToolbarMenu(Commands.ReorderMenu, new MenuProvider()
+                .Append(Commands.MoveUp)
+                .Append(Commands.MoveDown)
+                .Separator()
+                .Append(Commands.Interleave)
+                .Append(Commands.Deinterleave)
+                .Append(Commands.AltInterleave)
+                .Append(Commands.AltDeinterleave)
+                .Separator()
+                .SubMenu(Commands.ReverseMenu, new MenuProvider()
+                    .Append(Commands.ReverseAll)
+                    .Append(Commands.ReverseSelected)));
         separatorPending = true;
         if (ShowButton(ToolbarButtons.Delete))
             CreateToolbarButton(Commands.Delete);
         if (ShowButton(ToolbarButtons.Clear))
             CreateToolbarButton(Commands.ClearAll);
         separatorPending = true;
-        if (ShowButton(ToolbarButtons.Language))
-            CreateToolbarMenu(Commands.LanguageMenu, GetLanguageMenuProvider());
         MaybeCreateToolbarStackedButtons(
             Commands.Settings, ShowButton(ToolbarButtons.Settings),
             Commands.About, ShowButton(ToolbarButtons.About));
 
-        bool ShowButton(ToolbarButtons button)
+        // A null button is always shown (Papel buttons have no toolbar setting)
+        bool ShowButton(ToolbarButtons? button)
         {
-            if (!ToolbarConfig.IsToolbarButtonShown(button)) return false;
+            if (button != null && !ToolbarConfig.IsToolbarButtonShown(button.Value)) return false;
             if (separatorPending && hasButtons)
             {
                 CreateToolbarSeparator();
@@ -488,12 +469,12 @@ public abstract class DesktopForm : EtoFormBase
 
     protected virtual LayoutElement GetControlButtons()
     {
-        return L.Row(GetSidebarButton(), GetZoomButtons());
+        return GetZoomButtons();
     }
 
     protected LayoutElement GetSidebarButton()
     {
-        if (Config.Get(c => c.HiddenButtons).HasFlag(ToolbarButtons.Sidebar))
+        if (SidebarHidden)
         {
             return C.None();
         }
@@ -540,22 +521,28 @@ public abstract class DesktopForm : EtoFormBase
         // TODO: If we make any other forms non-modal, we will need to refresh them too
     }
 
+    // Papel has no scanning: this only sets the title now (kept so upstream merges stay small)
     private void UpdateScanButton()
     {
-        var defaultProfile = _profileManager.DefaultProfile;
-        UpdateTitle(defaultProfile);
-        var commandList = _profileManager.Profiles.Select(profile =>
-                new ActionCommand(() => _desktopScanController.ScanWithProfile(profile))
-                {
-                    MenuText = profile.DisplayName.Replace("&", "&&"),
-                    IconName = profile == defaultProfile ? "accept" : null
-                })
-            .ToImmutableList<Command>();
-        for (int i = 0; i < commandList.Count; i++)
-        {
-            _keyboardShortcuts.AssignProfileShortcut(i + 1, commandList[i]);
-        }
-        _scanMenuCommands.Value = commandList;
+        UpdateTitle(null);
+    }
+
+    public void UpdateTools()
+    {
+        _toolCommands.Value = Papel.PapelSettings.Current.Tools
+            .Where(t => !string.IsNullOrWhiteSpace(t.Name) && !string.IsNullOrWhiteSpace(t.Command))
+            .Select(t => (Command) Commands.CreateToolCommand(t))
+            .ToImmutableList();
+    }
+
+    /// <summary>Shows or hides the PowerShell console pane.</summary>
+    public virtual void ToggleConsole()
+    {
+    }
+
+    /// <summary>Shows the PowerShell console pane if it's hidden.</summary>
+    public virtual void ShowConsole()
+    {
     }
 
     private void EditWithController_AppChanged(object? sender, EventArgs e) => UpdateEditWithApp();
@@ -581,7 +568,7 @@ public abstract class DesktopForm : EtoFormBase
 
     protected virtual void UpdateTitle(ScanProfile? defaultProfile)
     {
-        Title = string.Format(UiStrings.Naps2TitleFormat, defaultProfile?.DisplayName ?? UiStrings.Naps2FullName);
+        Title = "Papel";
     }
 
     private void ListViewMouseWheel(object? sender, MouseEventArgs e)

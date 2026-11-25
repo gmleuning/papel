@@ -19,7 +19,6 @@ public class DesktopKeyboardShortcuts
         _ksm.Clear();
 
         // Unconfigurable defaults
-        _ksm.Assign("Mod+.", commands.Scan);
         _ksm.Assign("Mod+Up", commands.MoveUp);
         _ksm.Assign("Mod+Left", commands.MoveUp);
         _ksm.Assign("Mod+Down", commands.MoveDown);
@@ -37,7 +36,6 @@ public class DesktopKeyboardShortcuts
 
         _ksm.Assign(ks.Settings, commands.Settings);
         _ksm.Assign(ks.About, commands.About);
-        _ksm.Assign(ks.BatchScan, commands.BatchScan);
         _ksm.Assign(ks.Clear, commands.ClearAll);
         _ksm.Assign(ks.Delete, commands.Delete);
         if (PlatformCompat.System.CanEmail)
@@ -64,13 +62,11 @@ public class DesktopKeyboardShortcuts
         _ksm.Assign(ks.Import, commands.Import);
         _ksm.Assign(ks.MoveDown, commands.MoveDown);
         _ksm.Assign(ks.MoveUp, commands.MoveUp);
-        _ksm.Assign(ks.NewProfile, commands.NewProfile);
         _ksm.Assign(ks.Ocr, commands.Ocr);
         if (PlatformCompat.System.CanPrint)
         {
             _ksm.Assign(ks.Print, commands.Print);
         }
-        _ksm.Assign(ks.Profiles, commands.Profiles);
 
         _ksm.Assign(ks.ReorderAltDeinterleave, commands.AltDeinterleave);
         _ksm.Assign(ks.ReorderAltInterleave, commands.AltInterleave);
@@ -101,8 +97,6 @@ public class DesktopKeyboardShortcuts
         }
         _ksm.Assign(ks.PDFSettings, commands.PdfSettings);
         _ksm.Assign(ks.ImageSettings, commands.ImageSettings);
-        _ksm.Assign(ks.ScanDefault, commands.Scan);
-        _ksm.Assign(ks.ScannerSharing, commands.ScannerSharing);
 
         _ksm.Assign(ks.ZoomIn, commands.ZoomIn);
         _ksm.Assign(ks.ZoomOut, commands.ZoomOut);

@@ -1,4 +1,5 @@
 using NAPS2.EtoForms.Desktop;
+using NAPS2.Papel;
 
 namespace NAPS2.EtoForms.Ui;
 
@@ -15,13 +16,15 @@ public class DesktopCommands : IDisposable
     private readonly DesktopFormProvider _desktopFormProvider;
     private readonly EditWithController _editWithController;
     private readonly IProfileManager _profileManager;
+    private readonly PapelServices _papel;
 
     public DesktopCommands(DesktopController desktopController, DesktopScanController desktopScanController,
         IDesktopSubFormController desktopSubFormController, UiImageList imageList, ImageListActions imageListActions,
         ThumbnailController thumbnailController, IIconProvider iconProvider, Naps2Config config,
         DesktopFormProvider desktopFormProvider, EditWithController editWithController,
-        IProfileManager profileManager)
+        IProfileManager profileManager, PapelServices papel)
     {
+        _papel = papel;
         _desktopController = desktopController;
         _desktopScanController = desktopScanController;
         _desktopSubFormController = desktopSubFormController;
@@ -67,7 +70,7 @@ public class DesktopCommands : IDisposable
         };
         Import = new ActionCommand(desktopController.Import)
         {
-            Text = UiStrings.Import,
+            Text = "Open",
             IconName = "folder_picture"
         };
         SaveAll = new ActionCommand(imageListActions.SaveAllAsPdfOrImages)
@@ -362,6 +365,90 @@ public class DesktopCommands : IDisposable
             IconName = "application_side_list"
         };
 
+        // ---- Papel additions ----
+        CleanTextMenu = new ActionCommand(() => _ = papel.CleanText.CopyToClipboard(true))
+        {
+            Text = "Clean text",
+            IconName = "text_align_justify"
+        };
+        CopyCleanTextSelected = new ActionCommand(() => _ = papel.CleanText.CopyToClipboard(true))
+        {
+            Text = "Copy clean text (selected pages)",
+            IconName = "copy"
+        };
+        CopyCleanTextAll = new ActionCommand(() => _ = papel.CleanText.CopyToClipboard(false))
+        {
+            Text = "Copy clean text (all pages)"
+        };
+        ExportCleanText = new ActionCommand(() => _ = papel.CleanText.SaveAs(false))
+        {
+            Text = "Export clean text (.md / .txt)...",
+            IconName = "text"
+        };
+        StripHeadersFooters = new ActionCommand(() =>
+        {
+            PapelSettings.Current.StripHeadersFooters = !PapelSettings.Current.StripHeadersFooters;
+            PapelSettings.Current.Save();
+            UpdatePapelState();
+        });
+        ToolsMenu = new ActionCommand(() => _desktopFormProvider.DesktopForm.ToggleConsole())
+        {
+            Text = "Tools",
+            IconName = "keyboard"
+        };
+        ToggleConsole = new ActionCommand(() => _desktopFormProvider.DesktopForm.ToggleConsole())
+        {
+            Text = "PowerShell console",
+            IconName = "keyboard"
+        };
+        EditTools = new ActionCommand(() => ProcessHelper.OpenFile(PapelSettings.FilePath))
+        {
+            Text = "Edit tools (papel.json)..."
+        };
+        ReloadTools = new ActionCommand(() =>
+        {
+            PapelSettings.Load();
+            _desktopFormProvider.DesktopForm.UpdateTools();
+        })
+        {
+            Text = "Reload tools"
+        };
+        PagesToVariable = new ActionCommand(() => _ = papel.Tools.ExportToVariable())
+        {
+            Text = "Send pages to console as $pdf"
+        };
+        PageMenu = new ActionCommand
+        {
+            Text = "Page",
+            IconName = "picture_edit"
+        };
+        CleanBlackWhite = new ActionCommand(desktopSubFormController.ShowAdaptiveThresholdForm)
+        {
+            Text = "Clean black && white...",
+            IconName = "contrast_high"
+        };
+        WhitenMargins = new ActionCommand(desktopSubFormController.ShowMarginWhitenForm)
+        {
+            Text = "Whiten margins...",
+            IconName = "transform_crop"
+        };
+        SplitSpreads = new ActionCommand(() => _ = papel.SpreadSplitter.SplitSelected())
+        {
+            Text = "Split two-page spreads",
+            IconName = "split_ver"
+        };
+        BookInfo = new ActionCommand(papel.ShowBookInfo)
+        {
+            Text = "Book info (title, author)...",
+            IconName = "pencil"
+        };
+        SaveMenu = new ActionCommand(desktopController.SavePdf)
+        {
+            Text = "Save",
+            IconName = "file_extension_pdf"
+        };
+        UpdatePapelState();
+
         _imageList.SelectionChanged += StateChanged;
         _imageList.ImagesUpdated += ImagesChanged;
         _imageList.ImagesThumbnailInvalidated += ImagesChanged;
@@ -407,6 +494,16 @@ public class DesktopCommands : IDisposable
         ZoomOut.Enabled = images.Any() && _thumbnailController.VisibleSize > ThumbnailSizes.MIN_SIZE;
         NewProfile.Enabled = !(_config.Get(c => c.NoUserProfiles) && _profileManager.Profiles.Any(x => x.IsLocked));
         Combine.Enabled = images.Count > 1;
+        PageMenu.Enabled = selection.Any();
+        CleanTextMenu.Enabled = CopyCleanTextAll.Enabled = ExportCleanText.Enabled = SaveMenu.Enabled =
+            SplitSpreads.Enabled = PagesToVariable.Enabled = images.Any();
+        CopyCleanTextSelected.Enabled = selection.Any();
+    }
+
+    private void UpdatePapelState()
+    {
+        StripHeadersFooters.Text = (PapelSettings.Current.StripHeadersFooters ? "✓ " : "    ") +
+                                   "Drop headers, footers && page numbers";
     }
 
     public void Dispose()
@@ -432,7 +529,8 @@ public class DesktopCommands : IDisposable
             _config,
             _desktopFormProvider,
             _editWithController,
-            _profileManager);
+            _profileManager,
+            _papel);
     }
 
     public ActionCommand CreateEditWithApp() => new(_imageListActions.EditWithApp)
@@ -513,4 +611,25 @@ public class DesktopCommands : IDisposable
     public ActionCommand Undo { get; set; }
     public ActionCommand Redo { get; set; }
     public ActionCommand ToggleSidebar { get; set; }
+    public ActionCommand CleanTextMenu { get; set; }
+    public ActionCommand CopyCleanTextSelected { get; set; }
+    public ActionCommand CopyCleanTextAll { get; set; }
+    public ActionCommand ExportCleanText { get; set; }
+    public ActionCommand StripHeadersFooters { get; set; }
+    public ActionCommand ToolsMenu { get; set; }
+    public ActionCommand ToggleConsole { get; set; }
+    public ActionCommand EditTools { get; set; }
+    public ActionCommand ReloadTools { get; set; }
+    public ActionCommand PagesToVariable { get; set; }
+    public ActionCommand PageMenu { get; set; }
+    public ActionCommand CleanBlackWhite { get; set; }
+    public ActionCommand WhitenMargins { get; set; }
+    public ActionCommand SplitSpreads { get; set; }
+    public ActionCommand BookInfo { get; set; }
+    public ActionCommand SaveMenu { get; set; }
+
+    public ActionCommand CreateToolCommand(PapelTool tool) => new(() => _ = _papel.Tools.RunTool(tool))
+    {
+        Text = tool.Name.Replace("&", "&&")
+    };
 }

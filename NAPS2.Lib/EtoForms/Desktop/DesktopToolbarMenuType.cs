@@ -4,6 +4,8 @@ public enum DesktopToolbarMenuType
 {
     Scan,
     SavePdf,
+    CleanText,
+    Tools,
     SaveImages,
     EmailPdf
 }

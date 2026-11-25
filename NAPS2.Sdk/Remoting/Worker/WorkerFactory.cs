@@ -41,7 +41,9 @@ internal class WorkerFactory : IWorkerFactory
             return new WorkerFactory(Environment.ProcessPath!, null, env);
         }
 #endif
-        var exePath = Path.Combine(AssemblyHelper.EntryFolder, "NAPS2.exe");
+        // Papel ships its GUI exe as Papel.exe; fall back to the upstream name
+        var exePath = Path.Combine(AssemblyHelper.EntryFolder, "Papel.exe");
+        if (!File.Exists(exePath)) exePath = Path.Combine(AssemblyHelper.EntryFolder, "NAPS2.exe");
         string[] candidateWorkerPaths =
         {
 #if DEBUG

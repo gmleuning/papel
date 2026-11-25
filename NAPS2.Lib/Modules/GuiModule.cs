@@ -4,6 +4,7 @@ using NAPS2.EtoForms.Desktop;
 using NAPS2.EtoForms.Notifications;
 using NAPS2.ImportExport;
 using NAPS2.Ocr;
+using NAPS2.Papel;
 using NAPS2.Pdf;
 using NAPS2.Scan;
 using NAPS2.Scan.Batch;
@@ -36,6 +37,12 @@ public class GuiModule : Module
         builder.RegisterType<DesktopFormProvider>().AsSelf().SingleInstance();
         builder.RegisterType<ImageListActions>().AsSelf().SingleInstance();
         builder.RegisterType<EditWithController>().AsSelf().SingleInstance();
+        builder.RegisterType<PapelSession>().AsSelf().SingleInstance();
+        builder.RegisterType<PowerShellSession>().AsSelf().SingleInstance();
+        builder.RegisterType<CleanTextController>().AsSelf().SingleInstance();
+        builder.RegisterType<PapelToolsController>().AsSelf().SingleInstance();
+        builder.RegisterType<SpreadSplitter>().AsSelf().SingleInstance();
+        builder.RegisterType<PapelServices>().AsSelf().SingleInstance();
         builder.RegisterInstance(EtoPlatform.Current.DarkModeProvider);
         builder.RegisterInstance(EtoPlatform.Current.ColorScheme);
 

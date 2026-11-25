@@ -43,6 +43,8 @@ public class DesktopSubFormController : IDesktopSubFormController
     public void ShowBrightnessContrastForm() => ShowImageEditor<BrightContEditor>();
     public void ShowHueSaturationForm() => ShowImageEditor<HueSatEditor>();
     public void ShowBlackWhiteForm() => ShowImageEditor<BlackWhiteEditor>();
+    public void ShowAdaptiveThresholdForm() => ShowImageEditor<AdaptiveThresholdEditor>();
+    public void ShowMarginWhitenForm() => ShowImageEditor<MarginWhitenEditor>();
     public void ShowSharpenForm() => ShowImageEditor<SharpenEditor>();
     public void ShowCompressForm() => ShowImageEditor<CompressEditor>();
     public void ShowSplitForm() => ShowImageEditor<SplitEditor>();
